@@ -92,7 +92,7 @@ case "$1" in
   # Set external GELF server
   logspout:gelf-server)
     [[ -z $2 ]] && echo "Please specify a GELF uri" && exit 1
-    DOKKU_LOGSPOUT_SYSLOG_SERVER="$2"
+    DOKKU_LOGSPOUT_GELF_SERVER="$2"
 
     if (grep -q DOKKU_LOGSPOUT_GELF_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
       grep -v DOKKU_LOGSPOUT_GELF_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
