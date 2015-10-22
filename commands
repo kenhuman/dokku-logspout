@@ -19,6 +19,15 @@ do_run() {
   echo $CID > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
 }
 
+do_gelf_run() {
+  CID=$(docker run -d --name="logspout" \
+        --volume=/var/run/docker.sock:/tmp/docker.sock \
+        --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:8000 \
+        micahhausler/logspout:gelf \
+        $DOKKU_LOGSPOUT_GELF_SERVER)
+  echo $CID > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
+}
+
 case "$1" in
   logspout:info)
     if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
@@ -80,6 +89,20 @@ case "$1" in
     fi
   ;;
 
+  # Set external GELF server
+  logspout:gelf-server)
+    [[ -z $2 ]] && echo "Please specify a GELF uri" && exit 1
+    DOKKU_LOGSPOUT_SYSLOG_SERVER="$2"
+
+    if (grep -q DOKKU_LOGSPOUT_GELF_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
+      grep -v DOKKU_LOGSPOUT_GELF_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
+      mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
+      echo "export DOKKU_LOGSPOUT_GELF_SERVER=$DOKKU_LOGSPOUT_GELF_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    else
+      echo "export DOKKU_LOGSPOUT_GELF_SERVER=$DOKKU_LOGSPOUT_GELF_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    fi
+  ;;
+
   # Start logspout
   logspout:start)
     if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
@@ -89,6 +112,19 @@ case "$1" in
       if ! (docker ps -q --no-trunc | grep -q "$CID"); then
         docker rm -f logspout
         do_run
+      fi
+    fi
+  ;;
+
+  # Start logspout with GELF support
+  logspout:gelf-start)
+    if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+      do_gelf_run
+    else
+      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+      if ! (docker ps -q --no-trunc | grep -q "$CID"); then
+        docker rm -f logspout
+        do_gelf_run
       fi
     fi
   ;;
@@ -118,6 +154,8 @@ case "$1" in
     logspout:start, start logspout container
     logspout:stop, stop logspout container
     logspout:stream, print log stream to stdout
+    logspout:gelf-server <server-url>, set remote gelf server
+    logspout:gelf-start, start logspout container with gelf support
 EOF
 )
     if [[ -n $DOKKU_API_VERSION ]]; then
